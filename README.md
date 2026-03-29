@@ -186,7 +186,7 @@ Training loss for both the Generator (`Loss_G`) and Discriminator (`Loss_D`) are
    - Right panel → **Session Options** → **Accelerator → GPU T4 x2**
 4. Clone this repository in a notebook cell:
    ```bash
-   !git clone https://github.com/your-username/GAN-CelebA.git
+   !git clone https://github.com/vidasaeedzadeh/GAN-CelebA.git
    ```
 5. Run the notebook cells in order
 
