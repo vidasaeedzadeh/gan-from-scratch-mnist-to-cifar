@@ -120,6 +120,24 @@ The Discriminator takes a 64x64 RGB image (real or fake) and outputs a single va
 
 **`detach()` in Discriminator step:** When training the Discriminator on fake images, `fake_batch.detach()` is used to prevent gradients from flowing back into the Generator, ensuring each network is updated independently.
 
+**Different learning rates:** The Discriminator uses a lower learning rate (`0.0001`) than the Generator (`0.0002`). In the initial training run the Discriminator dominated and overpowered the Generator. Slowing it down gives the Generator more time to learn before facing a strong critic.
+
+**Balanced architecture:** The Discriminator was scaled up to ~11M parameters (from ~2.7M) to better match the Generator's ~13.7M parameters. A stronger Discriminator provides more meaningful and nuanced feedback to the Generator during training.
+
+### Speed Optimizations
+
+**Faster data loading:** The DataLoader uses `num_workers=4`, `pin_memory=True`, and `persistent_workers=True` to maximize CPU→GPU data transfer speed and avoid worker restart overhead between epochs.
+
+**`torch.compile()`:** Both models are compiled using PyTorch 2.0's `torch.compile(mode='reduce-overhead')` which JIT-compiles the models into optimized machine code, providing a 10-30% speed boost on GPU with no changes to the model itself.
+
+**Labels created once:** Real and fake label tensors are created once before the training loop rather than being recreated every batch, eliminating thousands of redundant tensor allocations.
+
+### Reliability
+
+**Model checkpointing:** Model weights, optimizer states, and training metrics are saved to `/kaggle/working/` every 5 epochs, allowing training to be resumed from any checkpoint if the session is interrupted.
+
+**Generated image snapshots:** A fixed noise vector is used to generate and save 64 face images every 5 epochs, creating a visual record of Generator progress throughout training.
+
 ### Training Loop Overview
 
 Each batch consists of two steps:
@@ -138,39 +156,51 @@ Each batch consists of two steps:
 
 ## Results
 
-### Metrics Tracked Per Epoch
+### Training Metrics
 
-- `Loss_G` — Generator loss
-- `Loss_D` — Discriminator loss (real + fake)
-- `D_real` — Average Discriminator output on real images (target: ~0.5)
-- `D_fake` — Average Discriminator output on fake images (target: ~0.5)
+The following metrics were tracked per epoch across 40 epochs of training on Kaggle T4 GPU:
 
-### Healthy Training Signs
+| Metric | Epoch 1 | Epoch 10 | Epoch 20 | Epoch 40 |
+|---|---|---|---|---|
+| `Loss_G` | 2.59 | 1.57 | 1.97 | 2.10 |
+| `Loss_D` | 1.48 | 1.07 | 0.89 | 0.80 |
+| `D_real` | 0.61 | 0.67 | 0.78 | 0.83 |
+| `D_fake` | 0.39 | 0.33 | 0.22 | 0.17 |
 
-| Metric | Early Training | Healthy Training |
-|---|---|---|
-| `D_real` | ~0.7-0.9 | ~0.5-0.7 |
-| `D_fake` | ~0.1-0.3 | ~0.3-0.5 |
-| `Loss_D` | ~1.0-1.5 | stable ~1.0 |
-| `Loss_G` | ~2.0-3.0 | decreasing |
+The Generator learned quickly in the first 10 epochs, producing recognizable faces by epoch 5. After epoch 10 the Discriminator gradually gained the upper hand, which is a common challenge in DCGAN training. The best visual quality was observed around **epochs 15–20**.
 
-### Generated Images Per Epoch
+### Generated Images — Epoch Progression
 
-A fixed noise vector is used at the end of every epoch to generate the same set of 64 images. This allows us to visually track how the Generator improves over time — from random noise in early epochs to increasingly realistic faces in later epochs.
+The same fixed noise vector was used every 5 epochs to track Generator improvement visually. Each grid shows 64 generated faces.
 
-> Generated image samples will be added here after training completes.
+**Epoch 5** — Faces already recognizable with clear facial structure
 
-### Loss Curves
+![Epoch 5](outputs/images/epoch_5.png)
 
-Training loss for both the Generator (`Loss_G`) and Discriminator (`Loss_D`) are tracked across all epochs and plotted to monitor training stability. A healthy training run shows `Loss_G` gradually decreasing while `Loss_D` remains relatively stable.
+**Epoch 10** — Sharper faces, more realistic skin tones, better diversity
 
-> Loss curve plot will be added here after training completes.
+![Epoch 10](outputs/images/epoch_10.png)
 
-### D_real and D_fake Plots
+**Epoch 20** — Peak quality, many faces could pass as real celebrity photos
 
-`D_real` and `D_fake` are plotted across epochs to visualize the adversarial balance between the two networks. The ideal outcome is both values converging toward `0.5`, meaning the Discriminator can no longer reliably distinguish real from fake images.
+![Epoch 20](outputs/images/epoch_20.png)
 
-> D_real / D_fake plot will be added here after training completes.
+**Epoch 40** — Quality plateaus, Discriminator dominance visible in slight artifacts
+
+![Epoch 40](outputs/images/epoch_40.png)
+
+### Loss Curves and Discriminator Outputs
+
+![Training Curves](outputs/images/training_curves.png)
+
+The left plot shows `Loss_G` dropping sharply in the first 5 epochs as the Generator learns quickly, then rising gradually as the Discriminator gets stronger. `Loss_D` decreases steadily throughout, confirming the Discriminator dominance trend. The right plot shows `D_real` and `D_fake` diverging away from the ideal `0.5` line — both networks learned, but the Discriminator pulled ahead after epoch 10.
+
+### Key Observations
+
+- **No mode collapse** — all 64 generated faces are distinct throughout training ✅
+- **Strong diversity** — male/female, different ethnicities, ages, and hair styles represented ✅
+- **Fast convergence** — recognizable faces appeared as early as epoch 5 ✅
+- **Discriminator dominance** — `D_fake` dropped from `0.39` to `0.17` over 40 epochs, indicating the Discriminator gradually overpowered the Generator. This is a known challenge in DCGAN training and a direction for future improvement.
 
 ---
 
