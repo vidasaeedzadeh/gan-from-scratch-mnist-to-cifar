@@ -10,6 +10,7 @@ A deep learning project for learning and implementing a **Deep Convolutional Gen
 - [Dataset](#dataset)
 - [Model Architecture](#model-architecture)
 - [Training Details](#training-details)
+- [Challenges & Iterations](#challenges--iterations)
 - [Results](#results)
 - [How to Run](#how-to-run)
 - [Project Structure](#project-structure)
@@ -154,7 +155,71 @@ Each batch consists of two steps:
 
 ---
 
-## Results
+## Challenges & Iterations
+
+Training a GAN from scratch involves significant trial and error. This project went through two major training runs, each revealing a different failure mode.
+
+### Run 1 — Mode Collapse (Immediate Failure)
+
+The first training attempt failed within 2 epochs:
+
+| Metric | Epoch 1 | Epoch 2 | Epoch 3 |
+|---|---|---|---|
+| `D_fake` | 0.83 | 1.00 | 1.00 |
+| `Loss_G` | 0.38 | 0.31 | 0.31 |
+
+`D_fake = 1.0` by epoch 2 meant the Discriminator was classifying every fake image as real — and epochs 2 and 3 were identical, meaning nothing was learning anymore. This is **mode collapse**.
+
+**Root causes identified:**
+- Learning rate too high (`lr=0.001` instead of `0.0002`)
+- Hard labels `0` and `1` making the Discriminator overconfident
+- `BCEWithLogitsLoss` used incorrectly alongside a Sigmoid layer in the Discriminator
+
+**Fixes applied:**
+- Reduced learning rate to `0.0002`
+- Added label smoothing (`0.9` / `0.1` instead of `1` / `0`)
+- Removed Sigmoid from Discriminator, kept `BCEWithLogitsLoss` only
+
+---
+
+### Run 2 — Discriminator Dominance
+
+After fixing mode collapse, training stabilized but a new problem emerged — the Discriminator gradually overpowered the Generator:
+
+| Metric | Epoch 1 | Epoch 20 | Epoch 40 |
+|---|---|---|---|
+| `D_fake` | 0.35 | 0.25 | 0.18 |
+| `D_real` | 0.65 | 0.75 | 0.82 |
+
+`D_fake` drifting steadily toward `0` indicated the Discriminator was becoming too confident at detecting fakes, leaving the Generator with no useful gradients to learn from.
+
+**Root causes identified:**
+- Discriminator was too small (2.7M parameters) relative to Generator (14.3M) — a weak critic that overcorrected early
+- Both networks had the same learning rate, allowing the Discriminator to converge too quickly
+- Latent size of `200` was unnecessarily large, slowing Generator convergence
+
+**Fixes applied:**
+- Scaled up Discriminator from **2.7M → 11M parameters** (`64→128→256→512` channels to `128→256→512→1024`)
+- Gave Discriminator a lower learning rate (`0.0001`) than Generator (`0.0002`)
+- Reduced latent size from `200` to `100`
+
+---
+
+### Run 3 — Improved Results
+
+The fixes produced noticeably better early training:
+
+| Metric | Run 2 Epoch 5 | Run 3 Epoch 5 | Improvement |
+|---|---|---|---|
+| `D_fake` | 0.36 | 0.40 | ✅ Higher — G fooling D more |
+| `D_real` | 0.63 | 0.60 | ✅ D less overconfident |
+| `Loss_D` | 1.15 | 1.24 | ✅ D finding it harder |
+
+Recognizable faces appeared by **epoch 5** (significantly earlier than typical for DCGAN), with diverse outputs across gender, age, and ethnicity. The Discriminator still pulled ahead after epoch 10 — a known limitation of standard DCGAN that would require more advanced techniques (e.g. Wasserstein GAN, spectral normalization) to fully resolve.
+
+---
+
+
 
 ### Training Metrics
 
@@ -232,31 +297,6 @@ print(device)  # Should print: cuda
 
 ```python
 data_folder = '/kaggle/input/datasets/jessicali9530/celeba-dataset/img_align_celeba/img_align_celeba/'
-```
-
----
-
-## Project Structure
-
-```
-GAN-CelebA/
-│
-├── notebooks/              # Kaggle Jupyter notebooks
-│   └── dcgan_celeba.ipynb
-│
-├── src/                    # Reusable Python modules
-│   ├── dataset.py          # CelebADataset class
-│   ├── generator.py        # Generator model
-│   ├── discriminator.py    # Discriminator model
-│   └── train.py            # Training loop
-│
-├── outputs/                # Generated images and model checkpoints
-│   ├── images/             # Generated face samples per epoch
-│   └── checkpoints/        # Saved model weights
-│
-├── data/                   # Data scripts (not the dataset itself)
-│
-└── README.md
 ```
 
 ---
