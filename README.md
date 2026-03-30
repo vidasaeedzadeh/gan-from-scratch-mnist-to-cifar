@@ -236,31 +236,6 @@ data_folder = '/kaggle/input/datasets/jessicali9530/celeba-dataset/img_align_cel
 
 ---
 
-## Project Structure
-
-```
-GAN-CelebA/
-│
-├── notebooks/              # Kaggle Jupyter notebooks
-│   └── dcgan_celeba.ipynb
-│
-├── src/                    # Reusable Python modules
-│   ├── dataset.py          # CelebADataset class
-│   ├── generator.py        # Generator model
-│   ├── discriminator.py    # Discriminator model
-│   └── train.py            # Training loop
-│
-├── outputs/                # Generated images and model checkpoints
-│   ├── images/             # Generated face samples per epoch
-│   └── checkpoints/        # Saved model weights
-│
-├── data/                   # Data scripts (not the dataset itself)
-│
-└── README.md
-```
-
----
-
 ## Dependencies
 
 ```
