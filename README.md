@@ -159,30 +159,8 @@ Each batch consists of two steps:
 
 Training a GAN from scratch involves significant trial and error. This project went through two major training runs, each revealing a different failure mode.
 
-### Run 1 — Mode Collapse (Immediate Failure)
 
-The first training attempt failed within 2 epochs:
-
-| Metric | Epoch 1 | Epoch 2 | Epoch 3 |
-|---|---|---|---|
-| `D_fake` | 0.83 | 1.00 | 1.00 |
-| `Loss_G` | 0.38 | 0.31 | 0.31 |
-
-`D_fake = 1.0` by epoch 2 meant the Discriminator was classifying every fake image as real — and epochs 2 and 3 were identical, meaning nothing was learning anymore. This is **mode collapse**.
-
-**Root causes identified:**
-- Learning rate too high (`lr=0.001` instead of `0.0002`)
-- Hard labels `0` and `1` making the Discriminator overconfident
-- `BCEWithLogitsLoss` used incorrectly alongside a Sigmoid layer in the Discriminator
-
-**Fixes applied:**
-- Reduced learning rate to `0.0002`
-- Added label smoothing (`0.9` / `0.1` instead of `1` / `0`)
-- Removed Sigmoid from Discriminator, kept `BCEWithLogitsLoss` only
-
----
-
-### Run 2 — Discriminator Dominance
+### Run 1 — Discriminator Dominance
 
 After fixing mode collapse, training stabilized but a new problem emerged — the Discriminator gradually overpowered the Generator:
 
@@ -205,7 +183,7 @@ After fixing mode collapse, training stabilized but a new problem emerged — th
 
 ---
 
-### Run 3 — Improved Results
+### Run 2 — Improved Results
 
 The fixes produced noticeably better early training:
 
